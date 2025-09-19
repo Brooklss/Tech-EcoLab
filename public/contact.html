@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - Tech EcoLab</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="brand-icon">
+                    <div class="circuit-board">
+                        <div class="circuit-line"></div>
+                        <div class="circuit-line"></div>
+                        <div class="circuit-line"></div>
+                    </div>
+                </div>
+                <span class="brand-text">TECH<span class="accent">ECOLAB</span></span>
+            </div>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="products.html" class="nav-link">Products</a>
+                <a href="categories.html" class="nav-link">Categories</a>
+                <a href="about.html" class="nav-link">About</a>
+                <a href="contact.html" class="nav-link active">Contact</a>
+            </div>
+            
+            <div class="nav-actions">
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Search..." class="search-input">
+                    <button class="search-btn" id="searchBtn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <button class="cart-btn" id="cartBtn">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-count" id="cartCount">0</span>
+                </button>
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Page Header -->
+        <section class="page-header">
+            <div class="container">
+                <div class="page-header-content">
+                    <h1 class="page-title">CONTACT US</h1>
+                    <p class="page-subtitle">Get in touch with our tech experts</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Content -->
+        <section class="contact-content">
+            <div class="container">
+                <div class="contact-grid">
+                    <div class="contact-info">
+                        <h2>GET IN TOUCH</h2>
+                        <p>Have questions about our products or need technical support? Our team of experts is here to help you build the perfect system.</p>
+                        
+                        <div class="contact-methods">
+                            <div class="contact-method">
+                                <div class="method-icon">
+                                    <i class="fas fa-phone"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h3>Phone</h3>
+                                    <p>+1 (555) 123-TECH</p>
+                                    <span>Mon-Fri 9AM-6PM EST</span>
+                                </div>
+                            </div>
+                            
+                            <div class="contact-method">
+                                <div class="method-icon">
+                                    <i class="fas fa-envelope"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h3>Email</h3>
+                                    <p>support@techecolab.com</p>
+                                    <span>24/7 Support</span>
+                                </div>
+                            </div>
+                            
+                            <div class="contact-method">
+                                <div class="method-icon">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h3>Address</h3>
+                                    <p>123 Tech Street<br>Silicon Valley, CA 94000</p>
+                                    <span>Visit our showroom</span>
+                                </div>
+                            </div>
+                            
+                            <div class="contact-method">
+                                <div class="method-icon">
+                                    <i class="fas fa-comments"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h3>Live Chat</h3>
+                                    <p>Available 24/7</p>
+                                    <span>Instant support</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-form-container">
+                        <form class="contact-form" id="contactForm">
+                            <h3>SEND US A MESSAGE</h3>
+                            
+                            <div class="form-group">
+                                <label for="name">Full Name</label>
+                                <input type="text" id="name" name="name" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="subject">Subject</label>
+                                <select id="subject" name="subject" required>
+                                    <option value="">Select a subject</option>
+                                    <option value="general">General Inquiry</option>
+                                    <option value="technical">Technical Support</option>
+                                    <option value="sales">Sales Question</option>
+                                    <option value="warranty">Warranty Claim</option>
+                                    <option value="custom">Custom Build</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="message">Message</label>
+                                <textarea id="message" name="message" rows="5" required></textarea>
+                            </div>
+                            
+                            <button type="submit" class="submit-btn">
+                                <span>SEND MESSAGE</span>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="faq-section">
+                    <h2>FREQUENTLY ASKED QUESTIONS</h2>
+                    <div class="faq-grid">
+                        <div class="faq-item">
+                            <h3>What is your return policy?</h3>
+                            <p>We offer a 30-day return policy on all products. Items must be in original condition with all packaging and accessories.</p>
+                        </div>
+                        <div class="faq-item">
+                            <h3>Do you offer custom PC builds?</h3>
+                            <p>Yes! Our expert technicians can build a custom PC tailored to your specific needs and budget.</p>
+                        </div>
+                        <div class="faq-item">
+                            <h3>What shipping options are available?</h3>
+                            <p>We offer standard (3-5 days), expedited (1-2 days), and same-day shipping for local orders.</p>
+                        </div>
+                        <div class="faq-item">
+                            <h3>Do you provide technical support?</h3>
+                            <p>Absolutely! Our technical support team is available 24/7 to help with any questions or issues.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Tech EcoLab</h4>
+                    <p>Your trusted source for premium computer products and technology solutions.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="products.html">All Products</a></li>
+                        <li><a href="categories.html">Categories</a></li>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#contact">Contact Us</a></li>
+                        <li><a href="#shipping">Shipping Info</a></li>
+                        <li><a href="#returns">Returns</a></li>
+                        <li><a href="#warranty">Warranty</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Tech EcoLab. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
