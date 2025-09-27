@@ -89,9 +89,32 @@ tech-ecolab/
 
 ## API Endpoints
 
+### Public Endpoints
 - `GET /api/products` - Get all products (supports category, search, sort filters)
 - `GET /api/products/:id` - Get specific product details
 - `GET /api/categories` - Get all product categories
+
+### Admin Endpoints (Authentication Required)
+- `POST /api/auth/login` - Admin login
+- `POST /api/auth/logout` - Admin logout
+- `GET /api/auth/me` - Check authentication status
+- `POST /api/products` - Create new product
+- `PUT /api/products/:id` - Update product
+- `DELETE /api/products/:id` - Delete product
+
+## Admin Access
+
+The application includes a complete admin interface for product management:
+
+1. **Admin Login**: Navigate to `/admin-login.html`
+   - Username: `admin`
+   - Password: `admin123`
+
+2. **Admin Dashboard**: After login, access the dashboard at `/admin-dashboard.html`
+   - View product statistics
+   - Manage products (Create, Read, Update, Delete)
+   - Search and filter products
+   - Real-time updates
 
 ## Features Overview
 

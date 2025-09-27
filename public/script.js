@@ -192,20 +192,20 @@ function renderProducts() {
     }
     
     productsGrid.innerHTML = products.map(product => `
-        <div class="product-card" onclick="showProductDetails(${product.id})">
-            <div class="product-image">
+        <div class="product-card" onclick="showProductDetails(${product.id})" role="button" tabindex="0" aria-label="View details for ${product.name}">
+            <div class="product-image" aria-hidden="true">
                 <i class="fas fa-box"></i>
             </div>
             <div class="product-info">
                 <h3 class="product-name">${product.name}</h3>
                 <p class="product-description">${product.description}</p>
-                <div class="product-price">$${product.price}</div>
+                <div class="product-price" aria-label="Price: $${product.price}">$${product.price}</div>
                 <div class="product-actions">
-                    <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})">
-                        <i class="fas fa-cart-plus"></i> Add to Cart
+                    <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})" aria-label="Add ${product.name} to cart">
+                        <i class="fas fa-cart-plus" aria-hidden="true"></i> Add to Cart
                     </button>
-                    <button class="btn btn-secondary" onclick="event.stopPropagation(); showProductDetails(${product.id})">
-                        <i class="fas fa-eye"></i>
+                    <button class="btn btn-secondary" onclick="event.stopPropagation(); showProductDetails(${product.id})" aria-label="View details for ${product.name}">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
                     </button>
                 </div>
             </div>
@@ -732,20 +732,20 @@ function renderProducts() {
     const paginatedProducts = products.slice(startIndex, endIndex);
     
     productsGrid.innerHTML = paginatedProducts.map(product => `
-        <div class="product-card" onclick="showProductDetails(${product.id})">
-            <div class="product-image">
+        <div class="product-card" onclick="showProductDetails(${product.id})" role="button" tabindex="0" aria-label="View details for ${product.name}">
+            <div class="product-image" aria-hidden="true">
                 <i class="fas fa-box"></i>
             </div>
             <div class="product-info">
                 <h3 class="product-name">${product.name}</h3>
                 <p class="product-description">${product.description}</p>
-                <div class="product-price">$${product.price}</div>
+                <div class="product-price" aria-label="Price: $${product.price}">$${product.price}</div>
                 <div class="product-actions">
-                    <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})">
-                        <i class="fas fa-cart-plus"></i> Add to Cart
+                    <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})" aria-label="Add ${product.name} to cart">
+                        <i class="fas fa-cart-plus" aria-hidden="true"></i> Add to Cart
                     </button>
-                    <button class="btn btn-secondary" onclick="event.stopPropagation(); showProductDetails(${product.id})">
-                        <i class="fas fa-eye"></i>
+                    <button class="btn btn-secondary" onclick="event.stopPropagation(); showProductDetails(${product.id})" aria-label="View details for ${product.name}">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
                     </button>
                 </div>
             </div>
