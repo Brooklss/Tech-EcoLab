@@ -592,6 +592,8 @@
             loadCategories();
             loadProducts();
             setupEventListeners();
+            // Auto-refresh products/stats so stock changes after checkout are visible
+            startAutoRefresh();
         }
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initAdmin);
@@ -650,6 +652,25 @@
                     }
                 });
             }
+        }
+
+        // Periodic refresh to keep stock and stats in sync with live sales
+        let refreshTimer = null;
+        function startAutoRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(() => {
+                // Only refresh when tab is visible to save resources
+                if (document.visibilityState === 'visible') {
+                    loadProducts();
+                }
+            }, 10000); // every 10s
+
+            // Also refresh when returning to the tab
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    loadProducts();
+                }
+            });
         }
 
         // Load categories

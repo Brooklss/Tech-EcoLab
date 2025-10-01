@@ -178,7 +178,7 @@ function renderCategories() {
     };
     
     categoriesGrid.innerHTML = categories.map(category => `
-        <div class="category-card" onclick="filterByCategory(${category.id})">
+        <div class="category-card" data-category-id="${category.id}">
             <div class="category-icon">
                 <i class="${categoryIcons[category.name] || 'fas fa-box'}"></i>
             </div>
@@ -186,6 +186,14 @@ function renderCategories() {
             <p class="category-description">${category.description}</p>
         </div>
     `).join('');
+
+    // Event delegation for categories (avoid inline handlers to satisfy CSP)
+    categoriesGrid.onclick = function(e) {
+        const card = e.target.closest('.category-card');
+        if (!card) return;
+        const id = parseInt(card.dataset.categoryId, 10);
+        if (!isNaN(id)) filterByCategory(id);
+    };
 }
 
 function renderProducts() {
@@ -202,7 +210,7 @@ function renderProducts() {
     productsGrid.innerHTML = products.map(product => `
         <div class="product-card" data-card-id="${product.id}" role="button" tabindex="0" aria-label="View details for ${product.name}">
             <div class="product-image" aria-hidden="true">
-                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove();"/>` : '<i class="fas fa-box"></i>'}
+                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" data-fallback="remove"/>` : '<i class="fas fa-box"></i>'}
             </div>
             <div class="product-info">
                 <h3 class="product-name">${product.name}</h3>
@@ -219,8 +227,8 @@ function renderProducts() {
         </div>
     `).join('');
 
-    // Delegated events for products grid
-    productsGrid.addEventListener('click', (e) => {
+    // Delegated events for products grid (persist across renders)
+    productsGrid.onclick = function(e) {
         const addBtn = e.target.closest('.add-to-cart-btn');
         const viewBtn = e.target.closest('.view-details-btn');
         const buyBtn = e.target.closest('.buy-now-btn');
@@ -237,6 +245,11 @@ function renderProducts() {
         } else if (card) {
             const id = parseInt(card.dataset.cardId, 10); if (!isNaN(id)) showProductDetails(id);
         }
+    };
+
+    // Attach safe image error fallbacks
+    productsGrid.querySelectorAll('img[data-fallback="remove"]').forEach(img => {
+        img.addEventListener('error', () => img.remove());
     });
 }
 
@@ -272,16 +285,19 @@ function renderCartItems() {
         </div>
     `).join('');
 
-    // Event delegation for cart controls
+    // Event delegation for cart controls (robust to inner icon clicks)
     cartItems.onclick = function(e) {
-        const cartItem = e.target.closest('.cart-item');
+        const actionBtn = e.target.closest('[data-action]');
+        if (!actionBtn) return;
+        const cartItem = actionBtn.closest('.cart-item');
         if (!cartItem) return;
         const id = parseInt(cartItem.dataset.id, 10);
-        if (e.target.matches('[data-action="decrease"]')) {
+        const action = actionBtn.dataset.action;
+        if (action === 'decrease') {
             updateQuantity(id, -1);
-        } else if (e.target.matches('[data-action="increase"]')) {
+        } else if (action === 'increase') {
             updateQuantity(id, 1);
-        } else if (e.target.matches('[data-action="remove"]')) {
+        } else if (action === 'remove') {
             removeFromCart(id);
         }
     };
@@ -397,7 +413,7 @@ async function showProductDetails(productId) {
     productModalBody.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
             <div class="product-image" style="height: 300px;">
-                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove();"/>` : '<i class="fas fa-box" style="font-size: 4rem;"></i>'}
+                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" data-fallback="remove"/>` : '<i class="fas fa-box" style="font-size: 4rem;"></i>'}
             </div>
             <div>
                 <div class="product-price" style="font-size: 2rem; margin-bottom: 1rem;">$${product.price}</div>
@@ -418,17 +434,26 @@ async function showProductDetails(productId) {
                 ` : ''}
                 
                 <div style="display: flex; gap: 1rem;">
-                    <button class="btn btn-primary" onclick="addToCart(${product.id}); toggleModal(productModal);" style="flex: 1;">
+                    <button class="btn btn-primary" data-action="add-to-cart" style="flex: 1;">
                         <i class="fas fa-cart-plus"></i> Add to Cart
                     </button>
-                    <button class="btn btn-secondary" onclick="toggleModal(productModal);">
+                    <button class="btn btn-secondary" data-action="close-modal">
                         Close
                     </button>
                 </div>
             </div>
         </div>
     `;
-    
+    // Bind modal button actions (CSP-safe)
+    const addBtn = productModalBody.querySelector('[data-action="add-to-cart"]');
+    const closeBtn = productModalBody.querySelector('[data-action="close-modal"]');
+    if (addBtn) addBtn.addEventListener('click', () => { addToCart(product.id); toggleModal(productModal); });
+    if (closeBtn) closeBtn.addEventListener('click', () => toggleModal(productModal));
+
+    // Modal image fallback
+    const modalImg = productModalBody.querySelector('img[data-fallback="remove"]');
+    if (modalImg) modalImg.addEventListener('error', () => modalImg.remove());
+
     toggleModal(productModal);
 }
 
@@ -454,12 +479,33 @@ function showCartAnimation() {
 
 function handleCheckout() {
     if (cart.length === 0) return;
-    // Show transaction complete message
-    showNotification('Transaction complete! Thank you for your purchase.', 'success');
-    cart = [];
-    saveCart();
-    updateCartUI();
-    alert(`Checkout functionality would be implemented here.\n\nTotal: $${cartTotal.textContent}\nItems: ${cart.length}`);
+    const items = cart.map(i => ({ id: i.id, quantity: i.quantity }));
+    fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ items })
+    }).then(async (r) => {
+        if (!r.ok) {
+            const data = await r.json().catch(() => ({}));
+            if (r.status === 409 && data.insufficient) {
+                showNotification('Some items are out of stock. Please adjust your cart.', 'error');
+            } else {
+                showNotification('Checkout failed. Please try again.', 'error');
+            }
+            return;
+        }
+        // Success
+        showNotification('Transaction complete! Thank you for your purchase.', 'success');
+        cart = [];
+        saveCart();
+        updateCartUI();
+        if (cartModal && cartModal.classList.contains('show')) toggleModal(cartModal);
+        // Reload products to reflect updated stock
+        loadProducts();
+    }).catch(() => {
+        showNotification('Network error during checkout. Please try again.', 'error');
+    });
 }
 
 // Automatic payment flow (demo)
@@ -609,7 +655,7 @@ function renderPagination() {
     // Previous button
     paginationHTML += `
         <button class="pagination-btn ${currentPage === 1 ? 'disabled' : ''}" 
-                onclick="changePage(${currentPage - 1})" 
+                data-page="${currentPage - 1}" 
                 ${currentPage === 1 ? 'disabled' : ''}>
             <i class="fas fa-chevron-left"></i>
         </button>
@@ -620,7 +666,7 @@ function renderPagination() {
         if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
             paginationHTML += `
                 <button class="pagination-btn ${i === currentPage ? 'active' : ''}" 
-                        onclick="changePage(${i})">
+                        data-page="${i}">
                     ${i}
                 </button>
             `;
@@ -632,7 +678,7 @@ function renderPagination() {
     // Next button
     paginationHTML += `
         <button class="pagination-btn ${currentPage === totalPages ? 'disabled' : ''}" 
-                onclick="changePage(${currentPage + 1})" 
+                data-page="${currentPage + 1}" 
                 ${currentPage === totalPages ? 'disabled' : ''}>
             <i class="fas fa-chevron-right"></i>
         </button>
@@ -640,6 +686,14 @@ function renderPagination() {
     
     paginationHTML += '</div>';
     pagination.innerHTML = paginationHTML;
+
+    // Delegate pagination clicks (CSP-safe)
+    pagination.onclick = function(e) {
+        const btn = e.target.closest('.pagination-btn');
+        if (!btn || btn.classList.contains('disabled')) return;
+        const page = parseInt(btn.getAttribute('data-page'), 10);
+        if (!isNaN(page)) changePage(page);
+    };
 }
 
 function changePage(page) {
@@ -670,19 +724,35 @@ async function showCategoryPreview(categoryId) {
         if (previewTitle) previewTitle.textContent = `${category.name} Products`;
         if (previewProducts) {
             previewProducts.innerHTML = categoryProducts.map(product => `
-                <div class="product-card" onclick="showProductDetails(${product.id})">
+                <div class="product-card" data-card-id="${product.id}">
                     <div class="product-image">
                         <i class="fas fa-box"></i>
                     </div>
                     <div class="product-info">
                         <h3 class="product-name">${product.name}</h3>
                         <div class="product-price">$${product.price}</div>
-                        <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})">
+                        <button class="btn btn-primary" data-action="add-to-cart" data-id="${product.id}">
                             Add to Cart
                         </button>
                     </div>
                 </div>
             `).join('');
+
+            // Delegate preview product actions
+            previewProducts.onclick = function(e) {
+                const add = e.target.closest('[data-action="add-to-cart"]');
+                if (add) {
+                    e.stopPropagation();
+                    const id = parseInt(add.dataset.id, 10);
+                    if (!isNaN(id)) addToCart(id);
+                    return;
+                }
+                const card = e.target.closest('[data-card-id]');
+                if (card) {
+                    const id = parseInt(card.dataset.cardId, 10);
+                    if (!isNaN(id)) showProductDetails(id);
+                }
+            };
         }
         
         if (categoryPreview) {
@@ -799,7 +869,7 @@ function renderProducts() {
     productsGrid.innerHTML = paginatedProducts.map(product => `
         <div class="product-card" data-card-id="${product.id}" role="button" tabindex="0" aria-label="View details for ${product.name}">
             <div class="product-image" aria-hidden="true">
-                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove();"/>` : '<i class="fas fa-box"></i>'}
+                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" data-fallback="remove"/>` : '<i class="fas fa-box"></i>'}
             </div>
             <div class="product-info">
                 <h3 class="product-name">${product.name}</h3>
@@ -816,8 +886,8 @@ function renderProducts() {
         </div>
     `).join('');
 
-    // Re-bind delegated events for paginated list
-    productsGrid.addEventListener('click', (e) => {
+    // Re-bind delegated events for paginated list (persist across renders)
+    productsGrid.onclick = function(e) {
         const addBtn = e.target.closest('.add-to-cart-btn');
         const viewBtn = e.target.closest('.view-details-btn');
         const buyBtn = e.target.closest('.buy-now-btn');
@@ -834,7 +904,12 @@ function renderProducts() {
         } else if (card) {
             const id = parseInt(card.dataset.cardId, 10); if (!isNaN(id)) showProductDetails(id);
         }
-    }, { once: true });
+    };
+
+    // Attach safe image error fallbacks
+    productsGrid.querySelectorAll('img[data-fallback="remove"]').forEach(img => {
+        img.addEventListener('error', () => img.remove());
+    });
 }
 
 // Product detail page initialization
@@ -881,7 +956,7 @@ async function initializeProductDetailPage() {
                         </div>
                     ` : ''}
                     <div class="product-actions">
-                        <button class="btn btn-primary" onclick="addToCart(${product.id})">
+                        <button class="btn btn-primary" data-action="add-to-cart">
                             <i class="fas fa-cart-plus"></i> Add to Cart
                         </button>
                         <a class="btn btn-secondary" href="products.html">Back to Products</a>
@@ -889,6 +964,10 @@ async function initializeProductDetailPage() {
                 </div>
             </div>
         `;
+
+        // Bind detail page add-to-cart (CSP-safe)
+        const addBtn = container.querySelector('[data-action="add-to-cart"]');
+        if (addBtn) addBtn.addEventListener('click', () => addToCart(product.id));
 
         container.style.display = 'block';
     } catch (e) {

@@ -58,7 +58,8 @@ app.use(session({
 // Static with cache headers
 app.use(express.static('public', {
   setHeaders(res, p) {
-    if (p.endsWith('.html')) {
+    // In dev, avoid caching HTML, JS, and CSS so client always gets latest changes
+    if (p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css')) {
       res.setHeader('Cache-Control', 'no-cache');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -308,6 +309,66 @@ app.post('/api/cart/update', (req, res) => {
 app.post('/api/cart/clear', (req, res) => {
   req.session.cart = [];
   res.json({ ok: true });
+});
+
+// --- Checkout ---
+// Decrements inventory atomically if stock is sufficient, then clears session cart
+app.post('/api/checkout', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const sessionCart = getSessionCart(req);
+    const bodyCart = Array.isArray(req.body?.items) ? req.body.items : [];
+    const cart = bodyCart.length ? bodyCart : sessionCart;
+    if (!cart || cart.length === 0) return res.status(400).json({ error: 'Cart is empty' });
+
+    // Normalize items
+    const items = cart.map(i => ({ id: Number(i.id), quantity: Number(i.quantity) || 0 }))
+                     .filter(i => i.id && i.quantity > 0);
+    if (items.length === 0) return res.status(400).json({ error: 'Invalid cart items' });
+
+    await client.query('BEGIN');
+
+    // Lock rows for all products involved
+    const ids = items.map(i => i.id);
+    const lockResult = await client.query(
+      `SELECT id, stock_quantity FROM products WHERE id = ANY($1) FOR UPDATE`,
+      [ids]
+    );
+    const stockById = new Map(lockResult.rows.map(r => [Number(r.id), Number(r.stock_quantity)]));
+
+    // Validate stock
+    const insufficient = [];
+    for (const { id, quantity } of items) {
+      const current = stockById.get(id);
+      if (current == null || current < quantity) {
+        insufficient.push({ id, available: current ?? 0, requested: quantity });
+      }
+    }
+    if (insufficient.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Insufficient stock', insufficient });
+    }
+
+    // Decrement stock
+    for (const { id, quantity } of items) {
+      await client.query(
+        'UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2',
+        [quantity, id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Clear session cart after successful checkout
+    req.session.cart = [];
+    res.json({ ok: true });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch {}
+    console.error('Checkout error', e);
+    res.status(500).json({ error: 'Checkout failed' });
+  } finally {
+    client.release();
+  }
 });
 
 // Serve the main page
