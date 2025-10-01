@@ -233,101 +233,74 @@
     </div>
 
     <script>
-        // Admin login functionality
+        // Admin login functionality (clean, robust version)
         const loginForm = document.getElementById('loginForm');
         const errorMessage = document.getElementById('errorMessage');
         const loginBtn = document.getElementById('loginBtn');
         const loadingSpinner = document.getElementById('loadingSpinner');
         const loginBtnText = document.getElementById('loginBtnText');
 
-        // Check if already logged in
-        checkAuthStatus();
-        
-        // Debug: Check if form exists
-        console.log('Login form found:', loginForm);
-        console.log('Error message element:', errorMessage);
-
-        async function checkAuthStatus() {
+        // On load, if already authenticated, go to dashboard
+        (async function checkAuthStatus() {
             try {
-                const response = await fetch('/api/auth/me');
+                const response = await fetch('/api/auth/me', { credentials: 'include' });
                 if (response.ok) {
-                    // Already logged in, redirect to dashboard
                     window.location.href = 'admin-dashboard.html';
                 }
-            } catch (error) {
-                console.log('Not authenticated');
-            }
-        }
+            } catch (_) {}
+        })();
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            console.log('Form submitted, preventing default');
-            
+
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            
-            console.log('Username:', username, 'Password:', password ? '***' : 'empty');
-            
+
             if (!username || !password) {
                 showError('Please fill in all fields');
                 return;
             }
-            
+
             setLoading(true);
             hideError();
-            
             try {
-                console.log('Sending login request...');
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({ username, password })
                 });
-                
-                console.log('Response status:', response.status);
                 const data = await response.json();
-                console.log('Response data:', data);
-                
                 if (response.ok) {
-                    console.log('Login successful, redirecting...');
-                    // Login successful, redirect to dashboard
                     window.location.href = 'admin-dashboard.html';
                 } else {
                     showError(data.error || 'Login failed');
                 }
             } catch (error) {
-                console.error('Login error:', error);
                 showError('Network error. Please try again.');
             } finally {
                 setLoading(false);
             }
         });
 
-        function setLoading(loading) {
-            loginBtn.disabled = loading;
-            loadingSpinner.style.display = loading ? 'inline-block' : 'none';
-            loginBtnText.textContent = loading ? 'Signing In...' : 'Sign In';
+        function setLoading(isLoading) {
+            if (!loginBtn || !loadingSpinner || !loginBtnText) return;
+            loginBtn.disabled = isLoading;
+            loadingSpinner.style.display = isLoading ? 'inline-block' : 'none';
+            loginBtnText.textContent = isLoading ? 'Signing In...' : 'Sign In';
         }
 
         function showError(message) {
+            if (!errorMessage) return;
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
-            errorMessage.setAttribute('aria-live', 'assertive');
         }
 
         function hideError() {
+            if (!errorMessage) return;
+            errorMessage.textContent = '';
             errorMessage.style.display = 'none';
         }
-
-        // Handle Enter key in form
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !loginBtn.disabled) {
-                loginForm.dispatchEvent(new Event('submit'));
-            }
-        });
     </script>
-</body>
-</html>
+    </body>
+    </html>

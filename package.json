@@ -4,9 +4,9 @@
   "description": "Modern tech store for computer products",
   "main": "server.js",
   "scripts": {
-    "start": "node server-simple.js",
-    "start-pg": "node server.js",
-    "dev": "nodemon server-simple.js"
+    "start": "node server.js",
+    "start-local": "node server-simple.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

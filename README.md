@@ -63,10 +63,10 @@ Before running this application, make sure you have:
 
 5. **Start the application**
    ```bash
-   # Development mode with auto-restart
+   # Development mode with auto-restart (Express + PostgreSQL)
    npm run dev
-   
-   # Or production mode
+
+   # Production mode (Express + PostgreSQL)
    npm start
    ```
 

@@ -55,6 +55,8 @@ function initializePage() {
     // Initialize page-specific features
     if (currentPage === 'products.html') {
         initializeProductsPage();
+    } else if (currentPage === 'product.html') {
+        initializeProductDetailPage();
     } else if (currentPage === 'categories.html') {
         initializeCategoriesPage();
     } else if (currentPage === 'contact.html') {
@@ -732,7 +734,7 @@ function renderProducts() {
     const paginatedProducts = products.slice(startIndex, endIndex);
     
     productsGrid.innerHTML = paginatedProducts.map(product => `
-        <div class="product-card" onclick="showProductDetails(${product.id})" role="button" tabindex="0" aria-label="View details for ${product.name}">
+        <div class="product-card" onclick="window.location.href='product.html?id=${product.id}'" role="button" tabindex="0" aria-label="View details for ${product.name}">
             <div class="product-image" aria-hidden="true">
                 <i class="fas fa-box"></i>
             </div>
@@ -744,13 +746,75 @@ function renderProducts() {
                     <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})" aria-label="Add ${product.name} to cart">
                         <i class="fas fa-cart-plus" aria-hidden="true"></i> Add to Cart
                     </button>
-                    <button class="btn btn-secondary" onclick="event.stopPropagation(); showProductDetails(${product.id})" aria-label="View details for ${product.name}">
+                    <a class="btn btn-secondary" href="product.html?id=${product.id}" onclick="event.stopPropagation();" aria-label="Go to details for ${product.name}">
                         <i class="fas fa-eye" aria-hidden="true"></i>
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
     `).join('');
+}
+
+// Product detail page initialization
+async function initializeProductDetailPage() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    const loadingEl = document.getElementById('loading');
+    const container = document.getElementById('productDetail');
+    const title = document.getElementById('productTitle');
+    const subtitle = document.getElementById('productSubtitle');
+    if (!id || !container) return;
+
+    try {
+        if (loadingEl) loadingEl.classList.add('show');
+        const product = await loadProduct(id);
+        if (!product) {
+            if (subtitle) subtitle.textContent = 'Product not found';
+            return;
+        }
+
+        if (title) title.textContent = product.name;
+        if (subtitle) subtitle.textContent = product.description || '';
+
+        container.innerHTML = `
+            <div class="product-card" style="cursor: default;">
+                <div class="product-image" aria-hidden="true" style="height: 350px;">
+                    <i class="fas fa-box"></i>
+                </div>
+                <div class="product-info">
+                    <h3 class="product-name">${product.name}</h3>
+                    <p class="product-description">${product.description || ''}</p>
+                    <div class="product-price">$${product.price}</div>
+                    ${product.specifications ? `
+                        <div style="margin: 1rem 0;">
+                            <h4 style="margin-bottom: 0.5rem;">Specifications</h4>
+                            <div style="display: grid; gap: 0.5rem;">
+                                ${Object.entries(product.specifications).map(([k,v]) => `
+                                    <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding:0.5rem 0;">
+                                        <span style="font-weight:600;">${k.replace(/_/g,' ').toUpperCase()}</span>
+                                        <span>${v}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div class="product-actions">
+                        <button class="btn btn-primary" onclick="addToCart(${product.id})">
+                            <i class="fas fa-cart-plus"></i> Add to Cart
+                        </button>
+                        <a class="btn btn-secondary" href="products.html">Back to Products</a>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.style.display = 'block';
+    } catch (e) {
+        console.error(e);
+        if (subtitle) subtitle.textContent = 'Failed to load product';
+    } finally {
+        if (loadingEl) loadingEl.classList.remove('show');
+    }
 }
 
 // Initialize cart count on page load
