@@ -131,6 +131,49 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
+// Categories CRUD (protected)
+app.post('/api/categories', requireAdmin, async (req, res) => {
+  const { name, description } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  try {
+    const r = await pool.query(
+      'INSERT INTO categories(name, description) VALUES ($1, $2) RETURNING *',
+      [name, description || null]
+    );
+    res.status(201).json(r.rows[0]);
+  } catch (e) {
+    console.error('Create category error', e);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
+
+app.put('/api/categories/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, description } = req.body;
+  try {
+    const r = await pool.query(
+      'UPDATE categories SET name=$1, description=$2 WHERE id=$3 RETURNING *',
+      [name, description || null, id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(r.rows[0]);
+  } catch (e) {
+    console.error('Update category error', e);
+    res.status(500).json({ error: 'Failed to update category' });
+  }
+});
+
+app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const r = await pool.query('DELETE FROM categories WHERE id=$1', [id]);
+    res.json({ ok: true, deleted: r.rowCount });
+  } catch (e) {
+    console.error('Delete category error', e);
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
 app.get('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -222,6 +265,49 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
     console.error('Delete product error', e);
     res.status(500).json({ error: 'Failed to delete product' });
   }
+});
+
+// --- Session Cart ---
+function getSessionCart(req) {
+  if (!req.session.cart) req.session.cart = [];
+  return req.session.cart;
+}
+
+app.get('/api/cart', (req, res) => {
+  const cart = getSessionCart(req);
+  res.json(cart);
+});
+
+app.post('/api/cart/add', (req, res) => {
+  const { productId, quantity = 1, name, price } = req.body || {};
+  if (!productId) return res.status(400).json({ error: 'productId required' });
+  const cart = getSessionCart(req);
+  const existing = cart.find(i => i.id === Number(productId));
+  if (existing) {
+    existing.quantity += Number(quantity) || 1;
+  } else {
+    cart.push({ id: Number(productId), name, price, quantity: Number(quantity) || 1 });
+  }
+  res.json({ ok: true, cart });
+});
+
+app.post('/api/cart/update', (req, res) => {
+  const { productId, quantity } = req.body || {};
+  if (productId == null || quantity == null) return res.status(400).json({ error: 'productId and quantity required' });
+  const cart = getSessionCart(req);
+  const item = cart.find(i => i.id === Number(productId));
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  item.quantity = Number(quantity);
+  if (item.quantity <= 0) {
+    const idx = cart.findIndex(i => i.id === Number(productId));
+    cart.splice(idx, 1);
+  }
+  res.json({ ok: true, cart });
+});
+
+app.post('/api/cart/clear', (req, res) => {
+  req.session.cart = [];
+  res.json({ ok: true });
 });
 
 // Serve the main page

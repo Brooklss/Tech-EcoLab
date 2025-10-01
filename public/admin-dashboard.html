@@ -470,6 +470,37 @@
                     </table>
                 </div>
             </section>
+
+            <!-- Categories Management -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h2 class="section-title">Categories</h2>
+                    <div class="admin-actions">
+                        <input type="text" id="newCategoryName" placeholder="New category name" class="form-input" style="width: 220px;">
+                        <input type="text" id="newCategoryDesc" placeholder="Description (optional)" class="form-input" style="width: 260px;">
+                        <button class="admin-btn" id="addCategoryBtn">
+                            <i class="fas fa-plus"></i> Add Category
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTableBody">
+                            <tr>
+                                <td colspan="4" class="loading">Loading categories...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -550,14 +581,23 @@
         const categoryFilter = document.getElementById('categoryFilter');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
+        const addCategoryBtn = document.getElementById('addCategoryBtn');
+        const newCategoryName = document.getElementById('newCategoryName');
+        const newCategoryDesc = document.getElementById('newCategoryDesc');
+        const categoriesTableBody = document.getElementById('categoriesTableBody');
 
-        // Initialize dashboard
-        document.addEventListener('DOMContentLoaded', () => {
+        // Initialize dashboard (run now or on DOM ready)
+        function initAdmin() {
             checkAuthStatus();
             loadCategories();
             loadProducts();
             setupEventListeners();
-        });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAdmin);
+        } else {
+            initAdmin();
+        }
 
         // Check authentication status
         async function checkAuthStatus() {
@@ -581,6 +621,35 @@
             logoutBtn.addEventListener('click', handleLogout);
             searchProducts.addEventListener('input', filterProducts);
             categoryFilter.addEventListener('change', filterProducts);
+            if (addCategoryBtn) addCategoryBtn.addEventListener('click', handleAddCategory);
+
+            // Delegated actions for products table (no inline handlers)
+            productsTableBody.addEventListener('click', (e) => {
+                const editBtn = e.target.closest('button.edit-btn');
+                const delBtn = e.target.closest('button.delete-btn');
+                if (editBtn) {
+                    const id = parseInt(editBtn.dataset.id, 10);
+                    if (!isNaN(id)) editProduct(id);
+                } else if (delBtn) {
+                    const id = parseInt(delBtn.dataset.id, 10);
+                    if (!isNaN(id)) deleteProduct(id);
+                }
+            });
+
+            // Delegated actions for categories table
+            if (categoriesTableBody) {
+                categoriesTableBody.addEventListener('click', (e) => {
+                    const editBtn = e.target.closest('button.edit-category');
+                    const delBtn = e.target.closest('button.delete-category');
+                    if (editBtn) {
+                        const id = parseInt(editBtn.dataset.id, 10);
+                        if (!isNaN(id)) editCategory(id);
+                    } else if (delBtn) {
+                        const id = parseInt(delBtn.dataset.id, 10);
+                        if (!isNaN(id)) deleteCategory(id);
+                    }
+                });
+            }
         }
 
         // Load categories
@@ -608,8 +677,95 @@
                     option.textContent = category.name;
                     productCategory.appendChild(option);
                 });
+
+                renderCategoriesTable();
             } catch (error) {
                 console.error('Error loading categories:', error);
+            }
+        }
+
+        // Render categories table
+        function renderCategoriesTable() {
+            if (!categoriesTableBody) return;
+            if (categories.length === 0) {
+                categoriesTableBody.innerHTML = '<tr><td colspan="4" class="loading">No categories yet</td></tr>';
+                return;
+            }
+            categoriesTableBody.innerHTML = categories.map(c => `
+                <tr>
+                    <td>${c.id}</td>
+                    <td>${c.name}</td>
+                    <td>${c.description || ''}</td>
+                    <td class="product-actions">
+                        <button class="action-btn edit-btn edit-category" data-id="${c.id}"><i class="fas fa-edit"></i></button>
+                        <button class="action-btn delete-btn delete-category" data-id="${c.id}"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Add category
+        async function handleAddCategory() {
+            const name = (newCategoryName?.value || '').trim();
+            const description = (newCategoryDesc?.value || '').trim();
+            if (!name) { showError('Category name is required'); return; }
+            addCategoryBtn.disabled = true;
+            try {
+                const res = await fetch('/api/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ name, description })
+                });
+                if (!res.ok) {
+                    let msg = 'Failed to add category';
+                    try { const err = await res.json(); msg = err.error || msg; } catch {}
+                    showError(msg);
+                    return;
+                }
+                newCategoryName.value = '';
+                newCategoryDesc.value = '';
+                await loadCategories();
+                showSuccess('Category added');
+            } catch (e) {
+                showError('Network error while adding category');
+            } finally {
+                addCategoryBtn.disabled = false;
+            }
+        }
+
+        // Edit category (prompt-based simple UX)
+        window.editCategory = async function(id) {
+            const category = categories.find(c => c.id === id);
+            if (!category) return;
+            const newName = prompt('Edit category name', category.name);
+            if (newName === null) return;
+            const newDesc = prompt('Edit description (optional)', category.description || '');
+            try {
+                const res = await fetch(`/api/categories/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ name: newName, description: newDesc })
+                });
+                if (!res.ok) { showError('Failed to update category'); return; }
+                await loadCategories();
+                showSuccess('Category updated');
+            } catch (e) {
+                showError('Network error while updating category');
+            }
+        }
+
+        // Delete category
+        window.deleteCategory = async function(id) {
+            if (!confirm('Delete this category?')) return;
+            try {
+                const res = await fetch(`/api/categories/${id}`, { method: 'DELETE', credentials: 'include' });
+                if (!res.ok) { showError('Failed to delete category'); return; }
+                await loadCategories();
+                showSuccess('Category deleted');
+            } catch (e) {
+                showError('Network error while deleting category');
             }
         }
 
@@ -642,7 +798,7 @@
                     <tr>
                         <td>
                             ${product.image_url ? 
-                                `<img src="${product.image_url}" alt="${product.name}" class="product-image" onerror="this.style.display='none'">` : 
+                                `<img src="${product.image_url}" alt="${product.name}" class="product-image">` : 
                                 '<div class="product-image" style="background: var(--darker-bg); display: flex; align-items: center; justify-content: center;"><i class="fas fa-image"></i></div>'
                             }
                         </td>
@@ -652,10 +808,10 @@
                         <td>${product.stock_quantity}</td>
                         <td>
                             <div class="product-actions">
-                                <button class="action-btn edit-btn" onclick="editProduct(${product.id})" title="Edit Product">
+                                <button class="action-btn edit-btn" data-id="${product.id}" title="Edit Product">
                                     <i class="fas fa-edit" aria-hidden="true"></i>
                                 </button>
-                                <button class="action-btn delete-btn" onclick="deleteProduct(${product.id})" title="Delete Product">
+                                <button class="action-btn delete-btn" data-id="${product.id}" title="Delete Product">
                                     <i class="fas fa-trash" aria-hidden="true"></i>
                                 </button>
                             </div>
@@ -708,6 +864,7 @@
             document.getElementById('saveBtn').textContent = product ? 'Update Product' : 'Save Product';
             
             if (product) {
+                console.log('Editing product', product);
                 document.getElementById('productName').value = product.name;
                 document.getElementById('productDescription').value = product.description || '';
                 document.getElementById('productPrice').value = product.price;
@@ -737,6 +894,16 @@
             e.preventDefault();
             
             const formData = new FormData(productForm);
+            let specs = null;
+            const specsRaw = formData.get('specifications');
+            if (specsRaw && specsRaw.trim()) {
+                try {
+                    specs = JSON.parse(specsRaw);
+                } catch (err) {
+                    showError('Specifications must be valid JSON');
+                    return;
+                }
+            }
             const productData = {
                 name: formData.get('name'),
                 description: formData.get('description'),
@@ -744,13 +911,13 @@
                 category_id: parseInt(formData.get('category_id')),
                 stock_quantity: parseInt(formData.get('stock_quantity') || 0),
                 image_url: formData.get('image_url'),
-                specifications: formData.get('specifications') ? 
-                    JSON.parse(formData.get('specifications')) : null
+                specifications: specs
             };
             
             try {
                 let response;
                 if (editingProductId) {
+                    console.log('Updating product', editingProductId, productData);
                     response = await fetch(`/api/products/${editingProductId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -771,8 +938,9 @@
                     loadProducts();
                     closeProductModal();
                 } else {
-                    const error = await response.json();
-                    showError(error.error || 'Failed to save product');
+                    let errorText = 'Failed to save product';
+                    try { const error = await response.json(); errorText = error.error || errorText; } catch {}
+                    showError(errorText);
                 }
             } catch (error) {
                 console.error('Error saving product:', error);
@@ -782,9 +950,12 @@
 
         // Edit product
         function editProduct(productId) {
+            console.log('Edit button clicked for id', productId);
             const product = products.find(p => p.id === productId);
             if (product) {
                 openProductModal(product);
+            } else {
+                showError('Product not found in current list');
             }
         }
 
@@ -811,6 +982,10 @@
                 showError('Network error. Please try again.');
             }
         }
+
+        // Expose handlers globally for inline buttons
+        window.editProduct = editProduct;
+        window.deleteProduct = deleteProduct;
 
         // Handle logout
         async function handleLogout() {

@@ -88,8 +88,12 @@ function setupEventListeners() {
     if (closeProductBtn) closeProductBtn.addEventListener('click', () => toggleModal(productModal));
     
     // Mobile menu
-    if (mobileMenuBtn) {
-        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+    if (mobileMenuBtn && navMenu) {
+        mobileMenuBtn.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            const expanded = navMenu.classList.contains('active');
+            mobileMenuBtn.setAttribute('aria-expanded', expanded);
+        });
     }
     
     // View toggle buttons
@@ -124,8 +128,9 @@ async function loadCategories() {
     try {
         const response = await fetch('/api/categories');
         categories = await response.json();
-        renderCategories();
-        populateCategoryFilter();
+        // Only render elements that exist on the current page
+        if (typeof renderCategories === 'function') renderCategories();
+        if (typeof populateCategoryFilter === 'function') populateCategoryFilter();
     } catch (error) {
         console.error('Error loading categories:', error);
     }
@@ -161,6 +166,7 @@ async function loadProduct(id) {
 
 // Render functions
 function renderCategories() {
+    if (!categoriesGrid) return;
     const categoryIcons = {
         'Desktops': 'fas fa-desktop',
         'Laptops': 'fas fa-laptop',
@@ -194,25 +200,44 @@ function renderProducts() {
     }
     
     productsGrid.innerHTML = products.map(product => `
-        <div class="product-card" onclick="showProductDetails(${product.id})" role="button" tabindex="0" aria-label="View details for ${product.name}">
+        <div class="product-card" data-card-id="${product.id}" role="button" tabindex="0" aria-label="View details for ${product.name}">
             <div class="product-image" aria-hidden="true">
-                <i class="fas fa-box"></i>
+                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove();"/>` : '<i class="fas fa-box"></i>'}
             </div>
             <div class="product-info">
                 <h3 class="product-name">${product.name}</h3>
                 <p class="product-description">${product.description}</p>
                 <div class="product-price" aria-label="Price: $${product.price}">$${product.price}</div>
                 <div class="product-actions">
-                    <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})" aria-label="Add ${product.name} to cart">
+                    <button class="btn btn-primary add-to-cart-btn" data-id="${product.id}" aria-label="Add ${product.name} to cart">
                         <i class="fas fa-cart-plus" aria-hidden="true"></i> Add to Cart
                     </button>
-                    <button class="btn btn-secondary" onclick="event.stopPropagation(); showProductDetails(${product.id})" aria-label="View details for ${product.name}">
-                        <i class="fas fa-eye" aria-hidden="true"></i>
-                    </button>
+                    <button class="btn btn-secondary view-details-btn" data-id="${product.id}" aria-label="View details for ${product.name}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                    <button class="btn btn-primary buy-now-btn" data-id="${product.id}" aria-label="Buy ${product.name} now">Buy Now</button>
                 </div>
             </div>
         </div>
     `).join('');
+
+    // Delegated events for products grid
+    productsGrid.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('.add-to-cart-btn');
+        const viewBtn = e.target.closest('.view-details-btn');
+        const buyBtn = e.target.closest('.buy-now-btn');
+        const card = e.target.closest('[data-card-id]');
+        if (addBtn) {
+            e.stopPropagation();
+            const id = parseInt(addBtn.dataset.id, 10); if (!isNaN(id)) addToCart(id);
+        } else if (viewBtn) {
+            e.stopPropagation();
+            const id = parseInt(viewBtn.dataset.id, 10); if (!isNaN(id)) showProductDetails(id);
+        } else if (buyBtn) {
+            e.stopPropagation();
+            const id = parseInt(buyBtn.dataset.id, 10); if (!isNaN(id)) startAutomaticPayment(id);
+        } else if (card) {
+            const id = parseInt(card.dataset.cardId, 10); if (!isNaN(id)) showProductDetails(id);
+        }
+    });
 }
 
 function renderCartItems() {
@@ -228,7 +253,7 @@ function renderCartItems() {
     cartFooter.style.display = 'flex';
     
     cartItems.innerHTML = cart.map(item => `
-        <div class="cart-item">
+        <div class="cart-item" data-id="${item.id}">
             <div class="cart-item-image">
                 <i class="fas fa-box"></i>
             </div>
@@ -237,15 +262,29 @@ function renderCartItems() {
                 <div class="cart-item-price">$${item.price}</div>
             </div>
             <div class="cart-item-controls">
-                <button class="quantity-btn" onclick="updateQuantity(${item.id}, -1)">-</button>
+                <button class="quantity-btn" data-action="decrease">-</button>
                 <span class="quantity">${item.quantity}</span>
-                <button class="quantity-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
-                <button class="remove-btn" onclick="removeFromCart(${item.id})">
+                <button class="quantity-btn" data-action="increase">+</button>
+                <button class="remove-btn" data-action="remove">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
         </div>
     `).join('');
+
+    // Event delegation for cart controls
+    cartItems.onclick = function(e) {
+        const cartItem = e.target.closest('.cart-item');
+        if (!cartItem) return;
+        const id = parseInt(cartItem.dataset.id, 10);
+        if (e.target.matches('[data-action="decrease"]')) {
+            updateQuantity(id, -1);
+        } else if (e.target.matches('[data-action="increase"]')) {
+            updateQuantity(id, 1);
+        } else if (e.target.matches('[data-action="remove"]')) {
+            removeFromCart(id);
+        }
+    };
     
     updateCartTotal();
 }
@@ -254,28 +293,35 @@ function renderCartItems() {
 function addToCart(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
-    
+
+    // Update local cart immediately for responsiveness
     const existingItem = cart.find(item => item.id === productId);
     if (existingItem) {
         existingItem.quantity += 1;
     } else {
-        cart.push({
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            quantity: 1
-        });
+        cart.push({ id: product.id, name: product.name, price: product.price, quantity: 1 });
     }
-    
     saveCart();
     updateCartUI();
     showCartAnimation();
+
+    // Try to sync with server session cart (best-effort)
+    fetch('/api/cart/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ productId: product.id, quantity: 1, name: product.name, price: product.price })
+    }).catch(() => {});
 }
 
 function removeFromCart(productId) {
     cart = cart.filter(item => item.id !== productId);
     saveCart();
     updateCartUI();
+    fetch('/api/cart/update', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ productId, quantity: 0 })
+    }).catch(() => {});
 }
 
 function updateQuantity(productId, change) {
@@ -288,6 +334,10 @@ function updateQuantity(productId, change) {
     } else {
         saveCart();
         updateCartUI();
+        fetch('/api/cart/update', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ productId, quantity: item.quantity })
+        }).catch(() => {});
     }
 }
 
@@ -347,7 +397,7 @@ async function showProductDetails(productId) {
     productModalBody.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
             <div class="product-image" style="height: 300px;">
-                <i class="fas fa-box" style="font-size: 4rem;"></i>
+                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove();"/>` : '<i class="fas fa-box" style="font-size: 4rem;"></i>'}
             </div>
             <div>
                 <div class="product-price" style="font-size: 2rem; margin-bottom: 1rem;">$${product.price}</div>
@@ -383,6 +433,7 @@ async function showProductDetails(productId) {
 }
 
 function populateCategoryFilter() {
+    if (!categoryFilter) return;
     categoryFilter.innerHTML = '<option value="">All Categories</option>' +
         categories.map(category => 
             `<option value="${category.id}">${category.name}</option>`
@@ -403,9 +454,21 @@ function showCartAnimation() {
 
 function handleCheckout() {
     if (cart.length === 0) return;
-    
-    // In a real application, this would redirect to a checkout page
+    // Show transaction complete message
+    showNotification('Transaction complete! Thank you for your purchase.', 'success');
+    cart = [];
+    saveCart();
+    updateCartUI();
     alert(`Checkout functionality would be implemented here.\n\nTotal: $${cartTotal.textContent}\nItems: ${cart.length}`);
+}
+
+// Automatic payment flow (demo)
+function startAutomaticPayment(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    // Ensure it is in cart
+    addToCart(productId);
+    showNotification(`Automatic payment initiated for ${product.name}. This is a demo flow.`, 'info');
 }
 
 // Smooth scrolling for anchor links
@@ -734,25 +797,44 @@ function renderProducts() {
     const paginatedProducts = products.slice(startIndex, endIndex);
     
     productsGrid.innerHTML = paginatedProducts.map(product => `
-        <div class="product-card" onclick="window.location.href='product.html?id=${product.id}'" role="button" tabindex="0" aria-label="View details for ${product.name}">
+        <div class="product-card" data-card-id="${product.id}" role="button" tabindex="0" aria-label="View details for ${product.name}">
             <div class="product-image" aria-hidden="true">
-                <i class="fas fa-box"></i>
+                ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove();"/>` : '<i class="fas fa-box"></i>'}
             </div>
             <div class="product-info">
                 <h3 class="product-name">${product.name}</h3>
                 <p class="product-description">${product.description}</p>
                 <div class="product-price" aria-label="Price: $${product.price}">$${product.price}</div>
                 <div class="product-actions">
-                    <button class="btn btn-primary" onclick="event.stopPropagation(); addToCart(${product.id})" aria-label="Add ${product.name} to cart">
+                    <button class="btn btn-primary add-to-cart-btn" data-id="${product.id}" aria-label="Add ${product.name} to cart">
                         <i class="fas fa-cart-plus" aria-hidden="true"></i> Add to Cart
                     </button>
-                    <a class="btn btn-secondary" href="product.html?id=${product.id}" onclick="event.stopPropagation();" aria-label="Go to details for ${product.name}">
-                        <i class="fas fa-eye" aria-hidden="true"></i>
-                    </a>
+                    <button class="btn btn-secondary view-details-btn" data-id="${product.id}" aria-label="Go to details for ${product.name}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                    <button class="btn btn-primary buy-now-btn" data-id="${product.id}" aria-label="Buy ${product.name} now">Buy Now</button>
                 </div>
             </div>
         </div>
     `).join('');
+
+    // Re-bind delegated events for paginated list
+    productsGrid.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('.add-to-cart-btn');
+        const viewBtn = e.target.closest('.view-details-btn');
+        const buyBtn = e.target.closest('.buy-now-btn');
+        const card = e.target.closest('[data-card-id]');
+        if (addBtn) {
+            e.stopPropagation();
+            const id = parseInt(addBtn.dataset.id, 10); if (!isNaN(id)) addToCart(id);
+        } else if (viewBtn) {
+            e.stopPropagation();
+            const id = parseInt(viewBtn.dataset.id, 10); if (!isNaN(id)) showProductDetails(id);
+        } else if (buyBtn) {
+            e.stopPropagation();
+            const id = parseInt(buyBtn.dataset.id, 10); if (!isNaN(id)) startAutomaticPayment(id);
+        } else if (card) {
+            const id = parseInt(card.dataset.cardId, 10); if (!isNaN(id)) showProductDetails(id);
+        }
+    }, { once: true });
 }
 
 // Product detail page initialization
